@@ -1,8 +1,12 @@
 let current: string = null;
-let tokenType: string = null;
+let tokenType: TokenType = null;
 let currentToken: string = null;
 let nextPosition = 0;
 let input = '1 + 2 * 3';
+
+const values: { [prop: string]: number } = {};
+
+values['two'] = 2;
 
 function skipWhitespaces() {
     while(current === ' ') {
@@ -28,8 +32,8 @@ function readNext() {
 }
 
 function match(s: string) {
-    if (s === current) {
-        readNext();
+    if (s === currentToken) {
+        readToken();
     }
     else {
         expected(s);
@@ -54,16 +58,16 @@ function isAlpha(s: string) {
 }
 
 function matchName() {
-    if (!isAlpha(current)) expected('Name');
-    const result = current;
-    readNext();
+    if (tokenType !== 'identifier') expected('Name');
+    const result = currentToken;
+    readToken();
     return result;
 }
 
 function number() {
-    if (!isDigit(current)) expected('Number');
-    const number = parseInt(current);
-    readNext();
+    if (tokenType !== 'integer constant') expected('Number');
+    const number = parseInt(currentToken);
+    readToken();
     return number;
 }
 
@@ -81,7 +85,7 @@ function number() {
 // <expression> ::=	<sign> <term> { <adding operator> <term> }
 function expression() {
     let t = term();
-    while(current === '+' || current === '-') {
+    while(currentToken === '+' || currentToken === '-') {
         const op = addingOperator();
         const t2 = term();
         
@@ -96,11 +100,11 @@ function expression() {
 }
 
 function addingOperator() {
-    if (current === '+') {
+    if (currentToken === '+') {
         match('+');
         return '+';
     }
-    else if (current === '-') {
+    else if (currentToken === '-') {
         match('-');
         return '-';
     }
@@ -110,11 +114,11 @@ function addingOperator() {
 }
 
 function mulOperator() {
-    if (current === '*') {
+    if (currentToken === '*') {
         match('*');
         return '*';
     }
-    else if (current === '/') {
+    else if (currentToken === '/') {
         match('/');
         return '/';
     }
@@ -127,7 +131,7 @@ function mulOperator() {
 // <term> ::=	<factor> { <multiplying operator> <factor> }
 function term() {
     let f = factor();
-    while (current === '*' || current === '/') {
+    while (currentToken === '*' || currentToken === '/') {
         const op = mulOperator();
         const f2 = factor();
 
@@ -147,10 +151,13 @@ function term() {
 function factor() {
     let result;
 
-    if (current === '(') {
+    if (currentToken === '(') {
         match('(');
         result = expression();
         match(')');
+    }
+    else if (tokenType === 'identifier') {
+        result = readVariable();
     }
     else {
         result = number();
@@ -158,13 +165,87 @@ function factor() {
     return result;
 }
 
+function readVariable() {
+    if (typeof values[currentToken] === 'undefined') {
+        throw new Error(`variable ${currentToken} is not defined`);
+    }
+    const result = values[currentToken];
+    readToken();
+    return result;
+}
+
+function writeVariable(variable, value) {
+    console.debug(variable + ' = ' + value);
+    values[variable] = value;
+}
+
+
+// <simple statement> ::= <assignment statement> | <procedure statement> | 
+// <read statement> | <write statement>
+
+// <assignment statement> ::=	<variable> := <expression>
+
+function statement() {
+
+    if (tokenType === 'special symbol') {
+        console.debug('spec', currentToken);
+        structuredStatement();
+    }
+    else {
+        simpleStatement();
+    }
+
+}
+
+function structuredStatement() {
+    compoundStatement();
+}
+
+// <compound statement> ::=	begin <statement>{ ; <statement> } end
+function compoundStatement() {
+    match('begin');
+    statement(); match(';');
+    while(currentToken !== 'end') {
+        statement(); match(';');
+    }
+    match('end');
+}
+
+function simpleStatement() {
+    assignmentStatement();
+}
+
+function assignmentStatement() {
+    const varName = variable();
+    match(':=');
+    const val = expression();
+    writeVariable(varName, val);
+}
+
+function variable() {
+    return identifier();
+}
+
+function identifier() {
+    if (tokenType !== 'identifier') {
+        expected('IDENTIFIER');
+    }
+    const result = currentToken;
+    readToken();
+    return result;
+}
+
+
+
+
+
 function parse(s: string) {
     input = s;
     nextPosition = 0;
     readNext();
+    readToken();
 
-    const r = expression();
-    console.debug('result', r);
+    statement();
 }
 
 
@@ -179,6 +260,8 @@ function isSpecialChar(s: string) {
 function isWhitespace(c: string) {
     return c === ' ' || c === '\t' || c === '\n' || c === '\r';
 }
+
+type TokenType = 'EOF' | 'special symbol' | 'integer constant' | 'identifier';
 
 const SPECIAL_SYMBOLS = [
     '+', '-', '*', '=', '(', ')', '[', ']', '.', ',', ';', '>', '<', '>=', '<=', '<>', ':', ':=', '/',
@@ -248,17 +331,32 @@ function readToken() {
 }
 
 
-// parse('1 + 2 * 8');
-// parse('1 + 8 * 2');
-// parse('8 * 2 + 1');
+parse('a := two + 10 + 200 * 10');
+parse('b := 1 + 8 * 2');
+parse('c := 8 * 2 + 1');
 
-// parse('(1 + 2) * 8');
-// parse('(   1+2)    *8');
+parse('d := (1 + 2) * 8');
+parse('e := (   1+2)    *8');
+parse(`
+begin
+    length := 200;
+    height := 100;
+    area := length * height;
+end;`);
 
+parse(`
+begin
+    begin
+        length := 200;
+        height := 100;
+    end;
 
-input = '17 abc abc123 1234 or >17 >a >= and blabla';
-readNext();
-while (readToken()) {
-    console.debug(tokenType, currentToken);
-}
-console.debug('END');
+    area := length * height;
+end;`);
+
+// input = '17 abc abc123 1234 or >17 >a >= and blabla';
+// readNext();
+// while (readToken()) {
+//     console.debug(tokenType, currentToken);
+// }
+// console.debug('END');
