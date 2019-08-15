@@ -1,3 +1,5 @@
+import { Emitter } from "./emitter";
+
 // Grammer: https://www.cs.helsinki.fi/u/vihavain/k10/okk/minipascal/minipascalsyntax.html
 
 let current: string = null;
@@ -13,6 +15,8 @@ let values: { [prop: string]: number | boolean } = {};
 type DataType = 'integer' | 'Boolean';
 
 const symbols: { [prop: string]: DataType } = {};
+
+const emitter = new Emitter();
 
 values['two'] = 2;
 
@@ -83,23 +87,22 @@ function matchName() {
 
 function number() {
     if (tokenType !== 'integer constant') expected('Number');
+
+    emitter.emit(`i32.const ${currentToken}`);
+
     const number = parseInt(currentToken);
     readToken();
     return number;
 }
 
 /*
-
-
-
-
 <sign> ::=	+ | - | <empty>
 <adding operator> ::=	+ | - | or
 <multiplying operator> ::=	* | div | and
 */
 
 function isRelationalOperator() {
-    const operators = ['<', '>', '<=', '>=', '<>'];
+    const operators = ['=', '<', '>', '<=', '>=', '<>'];
     return operators.indexOf(currentToken) !== -1;
 }
 
@@ -107,17 +110,36 @@ function expression() {
     const e1 = simpleExpression();
     if (!isRelationalOperator()) return e1;
 
-    console.debug('op', currentToken);
+    //console.debug('op', currentToken);
     const op = currentToken;
     readToken();
     const e2 = simpleExpression();
 
     switch (op) {
-        case '<': return e1 < e2;
-        case '>': return e1 > e2;
-        case '>=': return e1 >= e2;
-        case '<=': return e1 <= e2;
-        case '<>': return e1 != e2;
+        case '=': {
+            emitter.emit(`i32.eq`);
+            return e1 < e2;
+        }
+        case '<': {
+            emitter.emit(`i32.lt_s`);
+            return e1 < e2;
+        }
+        case '>': {
+            emitter.emit(`i32.gt_s`);
+            return e1 > e2;
+        }
+        case '>=': { 
+            emitter.emit(`i32.ge_s`);
+            return e1 >= e2;
+        }
+        case '<=': {
+            emitter.emit(`i32.le_s`);
+            return e1 <= e2;
+        }
+        case '<>': {
+            emitter.emit(`i32.ne`);
+            return e1 != e2;
+        }
         default: throw new Error('unknown operator ' + op);
     }
 
@@ -132,12 +154,15 @@ function simpleExpression() {
 
         if (op === '+') {
             t = t + t2;
+            emitter.emit(`i32.add`);
         }
         else if (op === '-') {
             t = t - t2;
+            emitter.emit(`i32.sub`);
         }
         else {
             t = Boolean(t) || Boolean(t2);
+            emitter.emit(`i32.or`);
         }
     }
     return t;
@@ -189,12 +214,15 @@ function term() {
 
         if (op === '*') {
             f = f * f2;
+            emitter.emit(`i32.mul`);
         }
         else if (op === '/') {
             f = f / f2;
+            emitter.emit(`i32.div_s`);
         }
         else {
             f = Boolean(f) && Boolean(f2);
+            emitter.emit(`i32.and`);
         }
 
     }
@@ -209,6 +237,7 @@ function factor() {
     if (currentToken === 'not') {
         match('not');
         let f = factor();
+        emitter.emit(`i32.eqz`);
         f = !f;
         result = f;
     }
@@ -242,18 +271,22 @@ function readVariable() {
     if (typeof values[currentToken] === 'undefined') {
         throw new Error(`variable ${currentToken} is not defined`);
     }
+
+    emitter.emit(`get_local $${currentToken}`);
+
     const result = values[currentToken];
     readToken();
     return result;
 }
 
 function initVariable(variable, value) {
-    console.debug(variable + ' = ' + value);
+    //console.debug(variable + ' = ' + value);
     values[variable] = value;
 }
 
 function writeVariable(variable, value) {
-    console.debug(variable + ' = ' + value);
+    //console.debug(variable + ' = ' + value);
+    emitter.emit(`set_local $${variable}`);
     values[variable] = value;
 }
 
@@ -270,16 +303,34 @@ function matchIdentifier() {
 function program() {
     match('program');
     const p = matchIdentifier();
-    console.debug('program', p);
+    
+    //console.debug('program', p);
+
     match(';');
+
+    emitter.emit(`(module `);
+    emitter.incIndent();
+    emitter.emit(`(import "console" "log" (func $log (param i32)))`);
+    emitter.emit(`(func $${p}`); // (param $arg1 i32) (param $arg2 i32) (result i32)
+
+    emitter.incIndent();
+    emitter.emit(``);
+
     block();
 
+    emitter.decIndent();
+    emitter.emit(`)`);
+    emitter.emit(`(export "${p}" (func $${p}))`)
+
+    emitter.decIndent();
+    emitter.emit(`)`);
 }
 
 // <block> ::=	<variable declaration part> <statement part>    
 function block() {
     if (currentToken === 'var') {
         variableDeclarationPart();
+        emitter.emit(``);
     }
     compoundStatement();
 }
@@ -305,13 +356,21 @@ function variableDeclaration() {
     match(':');
     const type = matchIdentifier();
 
-    console.debug('var decl', type, names);
+    if (type !== 'integer') {
+        expected('integer');
+    }
+    //console.debug('var decl', type, names);
 
     names.forEach(n => {
         const initValue = (type === 'integer') ? 0 : false;
         initVariable(n, initValue);
         symbols[n] = type as DataType;
     });
+
+    names.forEach(n => {
+        emitter.emit(`(local $${n} i32)`);
+    });
+    
 }
 
 // <simple statement> ::= <assignment statement> | <procedure statement> | 
@@ -323,25 +382,28 @@ function statement() {
 
     if (currentToken === 'write') {
         writeStatement();
+        emitter.emit(``);
     }
     else if (currentToken === 'begin' || currentToken === 'if' || currentToken === 'while') {
         structuredStatement();
     }
     else {
         simpleStatement();
+        emitter.emit(``);
     }
-
 }
 
 function writeStatement() {
     match('write');
     match('(');
     let e = expression();
-    console.debug('output', e);
+    emitter.emit(`call $log`);
+    //console.debug('output', e);
     while (currentToken === ',') {
         match(',');
         e = expression();
-        console.debug('output', e);
+        emitter.emit(`call $log`);
+        //console.debug('output', e);
     }
     match(')');
 }
@@ -362,29 +424,61 @@ function structuredStatement() {
 
 function whileStatement() {
     match('while');
+
+    emitter.emit(`(block (loop`);
+    emitter.incIndent();
+
     const e = expression();
-    console.debug('while', e);
+
+    emitter.emit(`i32.eqz`);
+    emitter.emit(`br_if 1`);
+    emitter.emit(``);
+
+    //console.debug('while', e);
     match('do');
     statement();
+    
+    emitter.emit(`br 0`);
+    emitter.decIndent();
+    emitter.emit(`))`);
 }
 
 // <if statement> ::=	if <expression> then <statement> | if <expression> then <statement> else <statement>
 function ifStatement() {
     match('if');
     const e = expression();
-    console.debug('if', e);
+    //console.debug('if', e);
     match('then');
+
+    emitter.emit(`(if`);
+    emitter.incIndent();
+    emitter.emit(`(then`)
+    emitter.incIndent();
+
     statement();
 
+    emitter.decIndent();
+    emitter.emit(`)`);
+    
+
     // ??
-    if (currentToken === ';') {
-        match(';');
-    }
+    // if (currentToken === ';') {
+    //     match(';');
+    // }
     if (currentToken === 'else') {
         match('else');
-        console.debug('else');
+        //console.debug('else');
+
+        emitter.emit(`(else`);
+        emitter.incIndent();
+
         statement();
+        emitter.decIndent();
+        emitter.emit(`)`);
     }
+
+    emitter.decIndent();
+    emitter.emit(`)`);
 }
 
 // <while statement> ::=	while <expression> do <statement>
@@ -426,10 +520,6 @@ function identifier() {
     readToken();
     return result;
 }
-
-
-
-
 
 function parseStatement(s: string) {
     input = s;
@@ -623,21 +713,99 @@ symbols['area'] = 'integer';
 
 
 // parseProgram(`
-//     program TEST;
+//     program myProgram;
 //     var 
 //         x: integer;
-//         y: Boolean;
 //     begin
 //         x := 17;
-//         y := true;
+//         write(x);
 
-//         while x > 10 do 
+//         if x > 10 then
+//             begin
+//                 write(1);
+//             end
+//         else
+//             begin
+//                 write(2);
+//             end;
+        
+//         x := 0;
+
+//         while not (x >= 10) do 
 //         begin
-//             x := x - 1;
+
+//             if (x=3) or (x = 5) or (x = 7) then
+//             begin
+//                 write(999);
+//             end;
+
+//             write(x);
+//             x := x + 1;
 //         end;
         
-//         write(x);
+//     end;
+// `);
+
+
+parseProgram(`
+    program myProgram;
+    var 
+        x: integer;
+        y: integer;
+    begin
+        
+        x := 1;
+        while x < 30 do
+        begin
+
+            if (x < 10) and (x <> 7) then
+            begin
+                write(x);
+            end
+            else
+            begin
+
+                y := 100 + x - 10;
+
+                if not (y - 100 = 13) and ( x > 10 ) then
+                begin
+                    write(y);
+                end;
+
+            end;
+
+            x := x + 1;
+        end;
+
+    end;
+`);
+
+/*
+ while x > 10 do 
+        begin
+            x := x - 1;
+            write(x);
+        end;
+*/
+
+// parseProgram(`
+//     program myProgram;
+//     var 
+//         x: integer;
+//         y: integer;
+//         z: integer;
+//     begin
+//         x := 10;
+//         y := x + 2 * 5;
 //         write(y);
+//         z := 5 and 0;
+//         write(z);   
+//         z := 5 or 0;
+//         write(z);
+//         z := (5 > 1) and (1 > 5);
+//         write(z);
+//         z := (5 > 1) or (1 > 5);
+//         write(z);
 //     end;
 // `);
 
@@ -648,83 +816,15 @@ a := not true;
     d := not (1 < 2);
 */    
 
-parseStatement(`
-begin
-    e := (not (1 > 2)) and (not false);
-end;    
-`);
+// parseStatement(`
+// begin
+//     e := (not (1 > 2)) and (not false);
+// end;    
+// `);
 
 // input = '17 abc abc123 1234 or >17 >a >= and blabla';
 // readNext();
 // while (readToken()) {
-//     console.debug(tokenType, currentToken);
+//     //console.debug(tokenType, currentToken);
 // }
-// console.debug('END');
-
-
-/*
-(module
-
-(func $add (local $a i32) (local $b i32)
-i32.const 1
-i32.const 1
- i32.add
- set_local $a
-)
-
-(export "add" (func $add))
-
-
-)
-*/
-
-/*
- (if 
-      (then (
-        i32.const 20
-        set_local $a	
-        )
-      )
-      (else (
-        i32.const 20
-        set_local $a
-      ))
-    )
-
-
-(module
-  (func $add (param $lhs i32) (param $rhs i32) (result i32) (local $r i32)
-    
-    i32.const 100
-    set_local $r
-
-    (block
-    (loop
-    
-      get_local $lhs
-      get_local $rhs
-      i32.lt_s
-      i32.eqz
-
-      br_if 1
-
-      get_local $r
-      i32.const 10
-      i32.add
-      set_local $r
-
-      get_local $lhs
-      i32.const 1
-      i32.add
-      set_local $lhs
-
-      br 0
-    ))
-    
-
-    get_local $r
-    
-    )
-  (export "add" (func $add))
-)
-*/
+// //console.debug('END');
