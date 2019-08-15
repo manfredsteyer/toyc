@@ -784,7 +784,9 @@ symbols['area'] = 'integer';
 
 parseProgram(`
     { 
-        Sample program for displaying hotel rooms
+        Sample program for displaying hotel rooms.
+        
+        Shows the pascal features implemented by this toy compiler
     }
     program myProgram;
     var 
