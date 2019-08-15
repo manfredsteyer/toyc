@@ -1,6 +1,7 @@
 import { Emitter } from "./emitter";
 
 // Grammer: https://www.cs.helsinki.fi/u/vihavain/k10/okk/minipascal/minipascalsyntax.html
+// This Grammer has been partly implemented: Skipped arrays, procedures, and the read keyword
 
 let current: string = null;
 let tokenType: TokenType = null;
@@ -12,7 +13,7 @@ let column = 0;
 
 let values: { [prop: string]: number | boolean } = {};
 
-type DataType = 'integer' /*| 'Boolean' | 'boolean' */
+type DataType = 'integer' /*| 'Boolean' | 'boolean' */;
 
 const symbols: { [prop: string]: DataType } = {};
 
@@ -785,7 +786,7 @@ symbols['area'] = 'integer';
 parseProgram(`
     { 
         Sample program for displaying hotel rooms.
-        
+
         Shows the pascal features implemented by this toy compiler
     }
     program myProgram;
