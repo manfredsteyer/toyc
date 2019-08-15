@@ -12,7 +12,7 @@ let column = 0;
 
 let values: { [prop: string]: number | boolean } = {};
 
-type DataType = 'integer' | 'Boolean';
+type DataType = 'integer' /*| 'Boolean' | 'boolean' */
 
 const symbols: { [prop: string]: DataType } = {};
 
@@ -61,8 +61,13 @@ function match(s: string) {
     }
 }
 
-function expected(s: string) {
-    throw new Error(`${s} expected at line ${line}, column ${column} (position ${nextPosition - 1})`);
+function expected(s: string, info?: string) {
+    let err = `${s} expected between line ${line}, column ${column} (position ${nextPosition - 1}) and the token before`;
+
+    if (info) {
+        err += '\nINFO: ' + info;
+    }
+    throw new Error(err);
 }
 
 function unexpected() {
@@ -182,7 +187,7 @@ function addingOperator() {
         return 'or';
     }
     else {
-        expected('+, or, -');
+        expected('one of: +, -, or');
     }
 }
 
@@ -191,7 +196,7 @@ function mulOperator() {
         match('*');
         return '*';
     }
-    else if (currentToken === '/') {
+    else if (currentToken === '/' || currentToken === 'div') {
         match('/');
         return '/';
     }
@@ -200,7 +205,7 @@ function mulOperator() {
         return 'and';
     }
     else {
-        expected('*, and, /');
+        expected('one of: *, /, div, and');
     }
 }
 
@@ -252,9 +257,10 @@ function factor() {
         }
         result = readVariable();
     }
-    else if (currentToken === 'true' || currentToken === 'false') {
-        result = boolean();
-    }
+    // booleans are currently not supported
+    // else if (currentToken === 'true' || currentToken === 'false') {
+    //     result = boolean();
+    // }
     else {
         result = number();
     }
@@ -320,7 +326,7 @@ function program() {
 
     emitter.decIndent();
     emitter.emit(`)`);
-    emitter.emit(`(export "${p}" (func $${p}))`)
+    emitter.emit(`(export "main" (func $${p}))`)
 
     emitter.decIndent();
     emitter.emit(`)`);
@@ -357,7 +363,7 @@ function variableDeclaration() {
     const type = matchIdentifier();
 
     if (type !== 'integer') {
-        expected('integer');
+        expected('integer', 'this toy compiler only supports the type integer');
     }
     //console.debug('var decl', type, names);
 
@@ -569,15 +575,26 @@ function readToken() {
         return currentToken;
     }
 
-    while (isWhitespace(current)) {
+    let inComment = current === '}';
+
+    while (inComment || isWhitespace(current)) {
+        if (current === '}') {
+            inComment = false;            
+        }
         readNext();
+        if (current === '{') {
+            inComment = true;
+        }
     }
+
     //if ( ['+', '-', '*', '=', '(', ')', '[', ']', '.', ',', ';' ].indexOf(current) != -1 ) {
 
     if (isSpecialChar(current)) {
         while (isSpecialChar(current)) {
             if (buffer !== '' && current === ';') break;
             if (buffer !== '' && current === ')') break;
+            if (buffer === ')' ) break;
+            if (buffer === '}' ) break;
 
             buffer += current;
             readNext();
@@ -748,16 +765,24 @@ symbols['area'] = 'integer';
 
 
 parseProgram(`
+    { 
+        Sample program for displaying hotel rooms
+    }
     program myProgram;
     var 
-        x: integer;
+        x: integer;     { only integer supported }
         y: integer;
     begin
-        
+
         x := 1;
         while x < 30 do
         begin
 
+            { don't forget to put those parts into parenthesizes }
+            { 
+                Pascal demands them; this toy compiler does current NOT 
+                check for them and hence emit wrong code 
+            }
             if (x < 10) and (x <> 7) then
             begin
                 write(x);
@@ -767,7 +792,8 @@ parseProgram(`
 
                 y := 100 + x - 10;
 
-                if not (y - 100 = 13) and ( x > 10 ) then
+                { one more time: don't forget the parenthesizes }
+                if not ( (y - 100 = 13) or (y-100=7) ) and ( x > 10 ) then
                 begin
                     write(y);
                 end;
@@ -776,6 +802,15 @@ parseProgram(`
 
             x := x + 1;
         end;
+
+        { 
+            calc hotel room price for 
+            2 nights one person + 1 night a 2nd person
+        }
+        
+        x := 120;
+        x := x * (2 + 1);
+        write(x);
 
     end;
 `);
