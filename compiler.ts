@@ -1,3 +1,5 @@
+// Grammer: https://www.cs.helsinki.fi/u/vihavain/k10/okk/minipascal/minipascalsyntax.html
+
 let current: string = null;
 let tokenType: TokenType = null;
 let currentToken: string = null;
@@ -648,7 +650,6 @@ a := not true;
 
 parseStatement(`
 begin
-    
     e := (not (1 > 2)) and (not false);
 end;    
 `);
@@ -674,5 +675,56 @@ i32.const 1
 (export "add" (func $add))
 
 
+)
+*/
+
+/*
+ (if 
+      (then (
+        i32.const 20
+        set_local $a	
+        )
+      )
+      (else (
+        i32.const 20
+        set_local $a
+      ))
+    )
+
+
+(module
+  (func $add (param $lhs i32) (param $rhs i32) (result i32) (local $r i32)
+    
+    i32.const 100
+    set_local $r
+
+    (block
+    (loop
+    
+      get_local $lhs
+      get_local $rhs
+      i32.lt_s
+      i32.eqz
+
+      br_if 1
+
+      get_local $r
+      i32.const 10
+      i32.add
+      set_local $r
+
+      get_local $lhs
+      i32.const 1
+      i32.add
+      set_local $lhs
+
+      br 0
+    ))
+    
+
+    get_local $r
+    
+    )
+  (export "add" (func $add))
 )
 */
