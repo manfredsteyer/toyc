@@ -62,7 +62,8 @@ function match(s: string) {
 }
 
 function expected(s: string, info?: string) {
-    let err = `${s} expected between line ${line}, column ${column} (position ${nextPosition - 1}) and the token before`;
+    let err = `${s} expected between line ${line}, column ${column} (position ${nextPosition - 1}) and the token before\n`
+        + currentToken + ' is not allowed here.';
 
     if (info) {
         err += '\nINFO: ' + info;
@@ -70,8 +71,10 @@ function expected(s: string, info?: string) {
     throw new Error(err);
 }
 
-function unexpected() {
-    throw new Error(`unexpected token ${currentToken} at line ${line}, column ${column} (position ${nextPosition - 1})`);
+function unexpected(found?: string) {
+    let err = `unexpected token ${found} at line ${line}, column ${column} (position ${nextPosition - 1})`;
+  
+    throw new Error(err);
 }
 
 
@@ -345,19 +348,31 @@ function variableDeclarationPart() {
     match('var');
     let v = variableDeclaration();
     match(';');
-    while (tokenType === 'identifier') {
+    //while (tokenType === 'identifier') {
+    while (currentToken !== 'begin') {
         v = variableDeclaration();
         match(';');
     }
 }
 // <variable declaration part> ::=	<empty> | var <variable declaration> ; { <variable declaration> ; }
 
+function matchVariableName() {
+    let varName = matchIdentifier();
+    if (varName === 'integer') {
+        expected('VARIABLE NAME', 'variables cannot be named after datatypes!');
+    }
+    return varName;
+}
+
 function variableDeclaration() {
     const names = [];
-    names.push(matchIdentifier());
+    let varName = matchVariableName();
+
+    names.push(varName);
 
     while (currentToken === ',') {
-        names.push(matchIdentifier());
+        varName = matchVariableName();
+        names.push(varName);
     }
     match(':');
     const type = matchIdentifier();
@@ -545,7 +560,6 @@ function parseProgram(s: string) {
     program();
 }
 
-
 function isEOF(s: string) {
     return s === '';
 }
@@ -575,9 +589,9 @@ function readToken() {
         return currentToken;
     }
 
-    let inComment = current === '}';
+    let inComment = current === '{';
 
-    while (inComment || isWhitespace(current)) {
+    while (current !== '' && (inComment || isWhitespace(current))) {
         if (current === '}') {
             inComment = false;            
         }
@@ -585,6 +599,10 @@ function readToken() {
         if (current === '{') {
             inComment = true;
         }
+    }
+
+    if (inComment) {
+        throw new Error('Program terminated but comment was not closed.');
     }
 
     //if ( ['+', '-', '*', '=', '(', ')', '[', ']', '.', ',', ';' ].indexOf(current) != -1 ) {
@@ -601,7 +619,7 @@ function readToken() {
         }
 
         if (SPECIAL_SYMBOLS.indexOf(buffer) === -1) {
-            unexpected();
+            unexpected(buffer);
         }
 
         tokenType = 'special symbol';
@@ -772,6 +790,7 @@ parseProgram(`
     var 
         x: integer;     { only integer supported }
         y: integer;
+        bla : integer;
     begin
 
         x := 1;
@@ -807,7 +826,7 @@ parseProgram(`
             calc hotel room price for 
             2 nights one person + 1 night a 2nd person
         }
-        
+
         x := 120;
         x := x * (2 + 1);
         write(x);
