@@ -5,6 +5,8 @@ import { init, readToken, context, expected, error } from "./lexer";
 // Grammer: https://www.cs.helsinki.fi/u/vihavain/k10/okk/minipascal/minipascalsyntax.html
 // This Grammer has been partly implemented: Skipped arrays, procedures, and the read keyword
 
+const MAX_INT32 = Math.pow(2,32) / 2 - 1;
+
 const symbols: { [prop: string]: DataType } = {};
 let emitter: Emitter = new StringEmitter();
 
@@ -191,8 +193,11 @@ function simpleStatement() {
         writeStatement();
         emitter.emit(``);
     }
-    else {
+    else if (context.tokenType === 'identifier') {
         assignmentStatement();
+    }
+    else {
+        expected('STATEMENT');
     }
 }
 
@@ -213,6 +218,7 @@ function writeStatement() {
 
 // <assignment statement> ::= <variable> := <expression>
 function assignmentStatement() {
+
     const varName = variable();
 
     if (!symbols[varName]) error('unknown variable ' + varName);
@@ -372,6 +378,7 @@ function factor() {
 // }
 
 function readVariable() {
+
     emitter.emit(`get_local $${context.currentToken}`);
     readToken();
 }
@@ -418,6 +425,11 @@ function match(s: string) {
 
 function number() {
     if (context.tokenType !== 'integer constant') expected('Number');
+    
+    if (parseInt(context.currentToken) > MAX_INT32) {
+        error(`The value ${context.currentToken} is too long for a 32bit integer. Maximum=${MAX_INT32}`);
+    }
+
     emitter.emit(`i32.const ${context.currentToken}`);
     readToken();
 }
@@ -428,6 +440,7 @@ function isRelationalOperator() {
 }
 
 export function parseProgram(s: string) {
+    emitter.reset();
     init(s);
     program();
 

@@ -72,8 +72,13 @@
           "options": {
             "browserTarget": "demo-app:build"
           }
+        },
+        "deploy": {
+          "builder": "angular-cli-ghpages:deploy",
+          "options": {}
         }
       }
-    }},
+    }
+  },
   "defaultProject": "demo-app"
 }
