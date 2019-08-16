@@ -108,6 +108,7 @@ export class AppComponent implements AfterViewInit {
   
       } catch (e) {
         console.error(e.toString());
+        this.result = e.toString();
   
       } finally {
         if (module) module.destroy();
