@@ -1,6 +1,6 @@
 import { ConsoleEmitter, StringEmitter } from "./emitter";
 import { DataType, Emitter } from "./types";
-import { init, readToken, context, expected } from "./lexer";
+import { init, readToken, context, expected, error } from "./lexer";
 
 // Grammer: https://www.cs.helsinki.fi/u/vihavain/k10/okk/minipascal/minipascalsyntax.html
 // This Grammer has been partly implemented: Skipped arrays, procedures, and the read keyword
@@ -215,7 +215,7 @@ function writeStatement() {
 function assignmentStatement() {
     const varName = variable();
 
-    if (!symbols[varName]) throw new Error('unknown variable ' + varName);
+    if (!symbols[varName]) error('unknown variable ' + varName);
 
     match(':=');
     const val = expression();

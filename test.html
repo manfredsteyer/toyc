@@ -3,60 +3,43 @@
 
 <script>
 
-WabtModule().then(function(wabt) { 
+  WabtModule().then(function (wabt) {
+
+    let textContent = '';
+    let wat = `
+      (module
+      (func (export "addTwo") (param i32 i32) (result i32)
+        local.get 0
+        local.get 1
+        i32.add))
+    `;
+
+    var binaryOutput;
     var binaryBuffer = null;
 
-function compile() {
-  let textContent = '';
-  let wat = `
-  (module
-  (func (export "addTwo") (param i32 i32) (result i32)
-    local.get 0
-    local.get 1
-    i32.add))
-  
-  `;
-  var binaryOutput;
-  
-
-  try {
-    var module = wabt.parseWat('test.wast', wat, {});
-    module.resolveNames();
-    module.validate({});
-    var binaryOutput = module.toBinary({log: true, write_debug_names:true});
-    console.debug(binaryOutput.log);
-    binaryBuffer = binaryOutput.buffer;
-
-    
-    run();
-
-  } catch (e) {
-    console.error(e.toString());
-    
-  } finally {
-    if (module) module.destroy();
-  }
-}
-
-function run() {
-  
-  if (binaryBuffer === null) return;
-  try {
-    let wasmModule = new WebAssembly.Module(binaryBuffer);
-
-    const wasmInstance =
-      new WebAssembly.Instance(wasmModule, {});
-const { addTwo } = wasmInstance.exports;
-for (let i = 0; i < 10; i++) {
-  console.log(addTwo(i, i));
-}
+    try {
+      var module = wabt.parseWat('test.wast', wat, {});
+      module.resolveNames();
+      module.validate({});
+      var binaryOutput = module.toBinary({ log: true, write_debug_names: true });
+      console.debug(binaryOutput.log);
+      binaryBuffer = binaryOutput.buffer;
 
 
-  } catch (e) {
-    console.error(String(e));
-  }
-}
+      let wasmModule = new WebAssembly.Module(binaryBuffer);
 
-compile();
-});
+      const wasmInstance =
+        new WebAssembly.Instance(wasmModule, {});
+      const { addTwo } = wasmInstance.exports;
+      for (let i = 0; i < 10; i++) {
+        console.log(addTwo(i, i));
+      }
+
+    } catch (e) {
+      console.error(e.toString());
+
+    } finally {
+      if (module) module.destroy();
+    }
+  });
 </script>

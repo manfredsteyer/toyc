@@ -32,17 +32,17 @@ export class StringEmitter implements Emitter {
     private indent: string = '';
 
     incIndent() {
-        this.indent += '\t';
+        this.indent += '    ';
     }
 
     decIndent() {
         if (this.indent) {
-            this.indent = this.indent.substr(0, this.indent.length-1);
+            this.indent = this.indent.substr(0, this.indent.length-4);
         }
     }
 
     emit(line: string) {
-        if (!line) line = ';;';
+        if (!line) line = '';
         line = line.replace('\n', '\n' + this.indent);
         this.output += this.indent + line + '\n';
     }

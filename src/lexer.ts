@@ -137,17 +137,22 @@ export function readToken() {
 }
 
 export function expected(s: string, info?: string) {
-    let err = `${s} expected between line ${context.line}, column ${context.column} (position ${context.nextPosition - 1}) and the token before\n`
-        + context.currentToken + ' is not allowed here.';
+    let err = `Token '${s}' expected between line ${context.line}, column ${context.column} (position ${Math.max(context.nextPosition - 1, 0)}) and the token before. The token '${context.currentToken}' is not allowed here.`;
 
     if (info) {
-        err += '\nINFO: ' + info;
+        err += '; INFO: ' + info;
     }
     throw new Error(err);
 }
 
 export function unexpected(found?: string) {
-    let err = `unexpected token ${found} at line ${context.line}, column ${context.column} (position ${context.nextPosition - 1})`;
+    let err = `unexpected token '${found}' at line ${context.line}, column ${context.column} (position ${context.nextPosition - 1})`;
+  
+    throw new Error(err);
+}
+
+export function error(error: string) {
+    let err = `${error} at line ${context.line}, column ${context.column} (position ${context.nextPosition - 1})`;
   
     throw new Error(err);
 }
