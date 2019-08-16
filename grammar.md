@@ -1,6 +1,6 @@
-# Grammer
+# Grammar
 
-The Grammer for this toy compiler is a **subset** of the MiniPascal Grammer which was taken from [here](https://www.cs.helsinki.fi/u/vihavain/k10/okk/minipascal/minipascalsyntax.html).
+The Grammar for this toy compiler is a **subset** of the MiniPascal Grammer which was taken from [here](https://www.cs.helsinki.fi/u/vihavain/k10/okk/minipascal/minipascalsyntax.html).
 
 # Production Rules
 
