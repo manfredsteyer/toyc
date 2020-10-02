@@ -12,7 +12,7 @@ begin
     
     stop := year + 1000;
 
-    while year <= stop do { support contol structors: while, if }
+    while year <= stop do { support contol structurs: while, if }
     begin
       writeRoman(year); 
       write(year); 
