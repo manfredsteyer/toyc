@@ -5,7 +5,7 @@ This is a fun project indented for learning and not for production. It contains 
 ## Credits
 
 - [Grammar for MiniPascal](https://www.cs.helsinki.fi/u/vihavain/k10/okk/minipascal/minipascalsyntax.html)
-  - [Used Subset](./grammar)
+  - [Used Subset](./grammar.md)
 - [Stanford course on compilers](http://web.stanford.edu/class/cs143/index2018.html)
 - [Practical tutorial on compilers](https://compilers.iecc.com/crenshaw/)
 - [Web Assembly documentation](https://webassembly.org/docs/semantics/)
